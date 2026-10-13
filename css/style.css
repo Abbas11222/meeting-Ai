@@ -1,0 +1,536 @@
+/* ==========================================================================
+   Meeting Intelligence Assistant
+   1. Design tokens   2. Base   3. Layout   4. Components
+   5. Dashboard       6. Live meeting   7. Dialog & toast   8. Responsive
+   ========================================================================== */
+
+
+/* 1. Design tokens ------------------------------------------------------- */
+:root {
+  --bg:          #eef1f4;
+  --panel:       #ffffff;
+  --ink:         #14202b;
+  --muted:       #5d6b78;
+  --line:        #d9dfe5;
+
+  --accent:      #0f6b6b;
+  --accent-ink:  #ffffff;
+  --accent-soft: #dcefee;
+
+  --amber:       #b9770e;
+  --amber-soft:  #f8ecd3;
+
+  --danger:      #d6402f;
+  --danger-soft: #fbe3df;
+
+  --font-head: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:          #0f1519;
+    --panel:       #172027;
+    --ink:         #e6edf2;
+    --muted:       #93a3b0;
+    --line:        #27343d;
+
+    --accent:      #4fc1bd;
+    --accent-ink:  #06201f;
+    --accent-soft: #14393a;
+
+    --amber:       #e6a640;
+    --amber-soft:  #3a2d12;
+
+    --danger:      #ff7766;
+    --danger-soft: #44201c;
+  }
+}
+
+
+/* 2. Base ---------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-family: var(--font-head);
+  letter-spacing: -0.01em;
+}
+h1 { font-size: 28px; }
+h2 { font-size: 18px; }
+h3 { font-size: 15px; }
+
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.row   { display: flex; flex-wrap: wrap; gap: 10px; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+
+
+/* 3. Layout -------------------------------------------------------------- */
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+  width: 224px;
+  height: 100vh;
+  padding: 20px 14px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.sidebar-cta { margin-bottom: 28px; }
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 18px;
+  font: 700 18px var(--font-head);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--accent);
+  border-radius: 9px;
+}
+.logo i {
+  width: 3px;
+  margin: 0 1.5px;
+  background: var(--accent-ink);
+  border-radius: 2px;
+}
+
+.nav-link {
+  padding: 9px 12px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.nav-link:hover  { background: var(--bg); }
+.nav-link.active { background: var(--accent-soft); color: var(--accent); }
+
+main {
+  flex: 1;
+  min-width: 0;
+  max-width: 1240px;
+  padding: 28px 32px 48px;
+}
+
+.view          { display: none; }
+.view.active   { display: block; }
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.page-header p { margin: 4px 0 0; }
+
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.back-arrow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-top: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+}
+.back-arrow:hover { border-color: var(--accent); color: var(--accent); }
+
+
+/* 4. Components ---------------------------------------------------------- */
+.card {
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* Buttons */
+.btn {
+  padding: 9px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-weight: 600;
+}
+.btn:hover           { border-color: var(--accent); }
+.btn:disabled        { opacity: 0.4; cursor: not-allowed; }
+.btn-primary         { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn-danger          { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-small           { padding: 5px 11px; font-size: 13px; }
+
+/* Form fields */
+.input,
+.search {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.search { max-width: 320px; background: var(--panel); }
+
+textarea.input {
+  min-height: 110px;
+  resize: vertical;
+}
+
+label {
+  display: block;
+  margin: 14px 0 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Tags and lists */
+.tag {
+  display: inline-block;
+  padding: 2px 9px;
+  background: var(--accent-soft);
+  border-radius: 99px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.tag-amber { background: var(--amber-soft); color: var(--amber); }
+
+.item {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.item:first-child { border-top: 0; }
+
+.empty   { padding: 14px 0; color: var(--muted); }
+.section { margin-top: 18px; }
+.section h3 { margin-bottom: 6px; }
+
+/* Error banner */
+.banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  color: var(--danger);
+  font-size: 14px;
+}
+.banner.visible { display: flex; }
+
+/* Meeting row (dashboard + list) */
+.meeting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+.meeting-row:first-child { border-top: 0; }
+.meeting-row:hover h3    { color: var(--accent); }
+
+
+/* 5. Dashboard ----------------------------------------------------------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.stat strong {
+  display: block;
+  font: 700 30px/1.1 var(--font-head);
+}
+.stat span { color: var(--muted); font-size: 13px; }
+
+.grid-charts {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 150px;
+  padding-top: 8px;
+}
+.bar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bar i {
+  display: block;
+  width: 100%;
+  max-width: 44px;
+  min-height: 3px;
+  background: var(--accent);
+  border-radius: 6px 6px 0 0;
+}
+
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 12px;
+}
+.legend div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 13px;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+
+/* 6. Live meeting & detail ------------------------------------------------ */
+.grid-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.rec-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+.rec-dot.on { background: var(--danger); }
+
+/* Microphone */
+.mic-card { display: flex; align-items: center; gap: 16px; }
+.mic-info { flex: 1; }
+
+.mic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  background: var(--accent);
+  border: 0;
+  border-radius: 50%;
+  color: var(--accent-ink);
+  transition: background 0.2s;
+}
+.mic svg      { width: 30px; height: 30px; }
+.mic:disabled { opacity: 0.4; cursor: not-allowed; }
+.mic.on {
+  background: var(--danger);
+  box-shadow: 0 0 0 calc(6px + var(--level, 0) * 18px) var(--danger-soft);
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 44px;
+}
+.waveform i {
+  flex: 1;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  transition: height 0.08s;
+}
+.waveform.on i { background: var(--danger); }
+
+/* Chat */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 300px;
+  padding: 2px;
+  overflow-y: auto;
+}
+.message {
+  max-width: 88%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 12px;
+  font-size: 14px;
+}
+.message small      { display: block; color: var(--muted); font-size: 12px; }
+.message.mine       { align-self: flex-end; background: var(--accent-soft); }
+.message.voice      { border-left: 3px solid var(--danger); border-radius: 4px 12px 12px 4px; }
+
+.chat-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.chat-input #speaker { width: 130px; flex: none; }
+
+.context-box {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Meeting detail */
+.ask-row { display: flex; gap: 8px; margin-top: 8px; }
+.answer {
+  display: none;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border-radius: 9px;
+  font-size: 14px;
+}
+.transcript {
+  max-height: 260px;
+  margin-top: 8px;
+  overflow: auto;
+  font-size: 14px;
+}
+.transcript p { margin: 0 0 6px; }
+
+
+/* 7. Dialog & toast ------------------------------------------------------- */
+dialog {
+  width: min(480px, 92vw);
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+}
+dialog::backdrop { background: rgba(10, 18, 24, 0.55); }
+dialog p         { margin: 4px 0 0; }
+
+.form-error      { min-height: 1.4em; margin: 8px 0 0; color: var(--danger); font-size: 13px; }
+.dialog-actions  { justify-content: flex-end; margin-top: 12px; }
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  z-index: 10;
+  display: none;
+  padding: 10px 16px;
+  background: var(--ink);
+  border-radius: 9px;
+  color: var(--bg);
+  font-size: 14px;
+  transform: translateX(-50%);
+}
+
+
+/* 8. Responsive ----------------------------------------------------------- */
+@media (max-width: 860px) {
+  body { flex-direction: column; }
+
+  .sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    height: auto;
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand        { padding: 0 8px 0 0; }
+  .sidebar-cta  { order: 3; margin: 0 0 0 auto; }
+  .sidebar-nav  { flex-direction: row; flex-wrap: wrap; align-items: center; }
+
+  main { padding: 20px 16px 40px; }
+
+  .grid-charts,
+  .grid-live { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

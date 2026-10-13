@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting Intelligence Assistant</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=5">
+</head>
+
+<body>
+
+  <!-- ============ Sidebar ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><i style="height: 8px"></i><i style="height: 15px"></i><i style="height: 10px"></i></span>
+      Meeting Assistant
+    </div>
+
+    <button class="btn btn-primary sidebar-cta" data-action="new-meeting">New meeting</button>
+
+    <nav class="sidebar-nav">
+      <button class="nav-link active" data-view="dashboard">Dashboard</button>
+      <button class="nav-link" data-view="list">Meetings</button>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="banner" id="error-banner" role="alert"></div>
+
+    <!-- ============ 1. Dashboard ============ -->
+    <section class="view active" id="view-dashboard">
+      <header class="page-header">
+        <div>
+          <h1>Your meetings</h1>
+          <p class="muted">Decisions, tasks and questions captured from your team's discussions.</p>
+        </div>
+      </header>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="grid-charts">
+        <div class="card">
+          <h2>Meetings per week</h2>
+          <div class="bar-chart" id="weekly-chart"></div>
+        </div>
+        <div class="card">
+          <h2>Action items</h2>
+          <div class="donut-wrap" id="action-donut"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Recent meetings</h2>
+          <button class="btn btn-small" data-view="list">View all</button>
+        </div>
+        <div id="recent-meetings"></div>
+      </div>
+    </section>
+
+    <!-- ============ 2. Existing meetings ============ -->
+    <section class="view" id="view-list">
+      <header class="page-header">
+        <div class="title-row">
+          <button class="back-arrow" data-back aria-label="Go back">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <div>
+            <h1>Existing meetings</h1>
+            <p class="muted">Previous meetings from the database.</p>
+          </div>
+        </div>
+        <input class="search" id="search" type="search" placeholder="Search by title or topic" aria-label="Search meetings">
+      </header>
+
+      <div class="card" id="meeting-list"></div>
+    </section>
+
+    <!-- ============ 3. Meeting details (filled by js/meetings.js) ============ -->
+    <section class="view" id="view-detail"></section>
+
+    <!-- ============ 4. Live meeting ============ -->
+    <section class="view" id="view-live">
+      <header class="page-header">
+        <div class="title-row">
+          <button class="back-arrow" data-back aria-label="Go back">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <div>
+            <h1 id="live-title"></h1>
+            <p class="muted">
+              <span class="rec-dot" id="live-dot"></span>
+              <span id="live-status">Ready to start</span> · <span id="live-timer">00:00</span>
+            </p>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="btn-start">Start meeting</button>
+          <button class="btn btn-danger" id="btn-end" hidden>End meeting</button>
+        </div>
+      </header>
+
+      <div class="grid-live">
+        <div class="stack">
+
+          <!-- Microphone -->
+          <div class="card mic-card">
+            <button class="mic" id="btn-mic" disabled aria-label="Turn microphone on or off">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="3" width="6" height="12" rx="3"/>
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
+              </svg>
+            </button>
+            <div class="mic-info">
+              <h3 id="mic-label">Microphone off</h3>
+              <div class="muted small" id="mic-hint">Start the meeting to enable the microphone.</div>
+              <div class="waveform" id="waveform"></div>
+            </div>
+          </div>
+
+          <!-- Chat -->
+          <div class="card">
+            <h2>Discussion</h2>
+            <div class="chat" id="chat" aria-live="polite"></div>
+            <div class="chat-input">
+              <input class="input" id="speaker" placeholder="Your name" aria-label="Your name">
+              <input class="input" id="message" placeholder="Type a message" aria-label="Message" disabled>
+              <button class="btn btn-primary" id="btn-send" disabled>Send</button>
+            </div>
+          </div>
+
+          <!-- Context (background only) -->
+          <div class="card">
+            <h3>Meeting background</h3>
+            <div class="context-box" id="live-context"></div>
+            <div class="muted small">Used as background only. It is never counted as discussed or decided.</div>
+          </div>
+        </div>
+
+        <!-- Live analysis -->
+        <div class="card">
+          <h2>Live analysis</h2>
+          <div class="section"><h3>Current topic</h3><div id="panel-topic"></div></div>
+          <div class="section"><h3>Decisions</h3><div id="panel-decisions"></div></div>
+          <div class="section"><h3>Action items</h3><div id="panel-actions"></div></div>
+          <div class="section"><h3>Questions</h3><div id="panel-questions"></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ New meeting pop-up ============ -->
+  <dialog id="new-dialog">
+    <h2>New meeting</h2>
+    <p class="muted small">Add background so the AI understands what the team is working on.</p>
+
+    <label for="new-title">Meeting title</label>
+    <input class="input" id="new-title" maxlength="90" placeholder="Meeting title">
+
+    <label for="new-context">Meeting context</label>
+    <textarea class="input" id="new-context" placeholder="What is the project, what needs to be decided, who is involved?"></textarea>
+
+    <p class="form-error" id="new-error"></p>
+
+    <div class="row dialog-actions">
+      <button class="btn" id="new-cancel">Cancel</button>
+      <button class="btn btn-primary" id="new-create">Create meeting</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Scripts: order matters (each file uses the ones above it) -->
+  <script src="js/config.js?v=5"></script>
+  <script src="js/utils.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/microphone.js?v=5"></script>
+  <script src="js/dashboard.js?v=5"></script>
+  <script src="js/meetings.js?v=5"></script>
+  <script src="js/new-meeting.js?v=5"></script>
+  <script src="js/live.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
+</body>
+</html>
