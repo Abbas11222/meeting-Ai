@@ -70,7 +70,7 @@ const Dashboard = {
     const container = $('#recent-meetings');
     container.innerHTML = renderList(
       meetings,
-      Meetings.rowHtml,
+      (meeting) => Meetings.rowHtml(meeting),
       'No meetings yet. Create your first one.'
     );
     Meetings.bindRows(container);

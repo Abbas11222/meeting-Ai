@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 
 <body>
@@ -140,13 +140,17 @@
           </div>
         </div>
 
-        <!-- Live analysis -->
+        <!-- Progress (the AI analysis happens once, after the meeting) -->
         <div class="card">
-          <h2>Live analysis</h2>
-          <div class="section"><h3>Current topic</h3><div id="panel-topic"></div></div>
-          <div class="section"><h3>Decisions</h3><div id="panel-decisions"></div></div>
-          <div class="section"><h3>Action items</h3><div id="panel-actions"></div></div>
-          <div class="section"><h3>Questions</h3><div id="panel-questions"></div></div>
+          <h2>Meeting progress</h2>
+          <div class="section"><h3>Messages captured</h3><div class="big-number" id="stat-messages">0</div></div>
+          <div class="section"><h3>Speakers</h3><div id="stat-speakers"></div></div>
+          <div class="section">
+            <p class="muted small">
+              Decisions, action items, questions and the summary are created once,
+              when you press <strong>End meeting</strong>.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -171,17 +175,27 @@
     </div>
   </dialog>
 
+  <!-- Shown while the meeting is ending and Gemini writes the summary -->
+  <div class="overlay" id="busy" hidden role="alert" aria-live="assertive">
+    <div class="overlay-box">
+      <div class="spinner" aria-hidden="true"></div>
+      <h3 id="busy-title">Working…</h3>
+      <p class="muted small" id="busy-text"></p>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status"></div>
 
   <!-- Scripts: order matters (each file uses the ones above it) -->
-  <script src="js/config.js?v=5"></script>
-  <script src="js/utils.js?v=5"></script>
-  <script src="js/api.js?v=5"></script>
-  <script src="js/microphone.js?v=5"></script>
-  <script src="js/dashboard.js?v=5"></script>
-  <script src="js/meetings.js?v=5"></script>
-  <script src="js/new-meeting.js?v=5"></script>
-  <script src="js/live.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/api.js?v=9"></script>
+  <script src="js/microphone.js?v=9"></script>
+  <script src="js/browser-speech.js?v=9"></script>
+  <script src="js/dashboard.js?v=9"></script>
+  <script src="js/meetings.js?v=9"></script>
+  <script src="js/new-meeting.js?v=9"></script>
+  <script src="js/live.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

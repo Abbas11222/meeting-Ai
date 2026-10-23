@@ -1,0 +1,1 @@
+"""Services: speech-to-text (Whisper) and meeting analysis (Gemini)."""

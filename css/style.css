@@ -285,17 +285,34 @@ label {
 .meeting-row {
   display: flex;
   align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+.meeting-row:first-child { border-top: 0; }
+
+.meeting-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  width: 100%;
+  min-width: 0;
   padding: 12px 0;
   background: none;
   border: 0;
-  border-top: 1px solid var(--line);
   text-align: left;
 }
-.meeting-row:first-child { border-top: 0; }
-.meeting-row:hover h3    { color: var(--accent); }
+.meeting-main:hover h3 { color: var(--accent); }
+
+.row-actions { display: flex; flex: none; gap: 6px; }
+
+/* Links that look like buttons (PDF) */
+a.btn           { display: inline-block; color: inherit; text-decoration: none; }
+a.btn-primary   { color: var(--accent-ink); }
+
+.btn-delete:hover { border-color: var(--danger); color: var(--danger); }
+
+.big-number { font: 700 30px/1.1 var(--font-head); }
 
 
 /* 5. Dashboard ----------------------------------------------------------- */
@@ -506,6 +523,41 @@ dialog p         { margin: 4px 0 0; }
 }
 
 
+/* Busy overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 18, 24, 0.6);
+}
+.overlay[hidden] { display: none; }
+
+.overlay-box {
+  max-width: 360px;
+  padding: 28px 30px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-align: center;
+}
+.overlay-box h3 { margin-top: 14px; font-size: 17px; }
+.overlay-box p  { margin: 6px 0 0; }
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto;
+  border: 4px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
 /* 8. Responsive ----------------------------------------------------------- */
 @media (max-width: 860px) {
   body { flex-direction: column; }
@@ -529,6 +581,9 @@ dialog p         { margin: 4px 0 0; }
 
   .grid-charts,
   .grid-live { grid-template-columns: 1fr; }
+
+  .meeting-row { flex-wrap: wrap; }
+  .row-actions { width: 100%; padding-bottom: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

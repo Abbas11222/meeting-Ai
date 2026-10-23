@@ -3,5 +3,9 @@ uvicorn[standard]
 python-multipart
 python-dotenv
 pydantic
+httpx
 google-genai
-faster-whisper
+reportlab
+
+# Only needed if you set STT_ENGINE=local (runs Whisper on your own computer):
+# faster-whisper

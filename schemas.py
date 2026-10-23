@@ -17,7 +17,6 @@ class ActionItem(BaseModel):
 
 
 class MeetingAnalysis(BaseModel):
-    current_topic: Optional[str] = Field(description="Topic being discussed most recently, or null.")
     topics: list[str] = Field(description="Main topics discussed, as short phrases.")
     decisions: list[str] = Field(description="Choices the group actually agreed on.")
     action_items: list[ActionItem] = Field(description="Tasks assigned or accepted during the meeting.")
@@ -25,7 +24,12 @@ class MeetingAnalysis(BaseModel):
 
     @classmethod
     def empty(cls) -> "MeetingAnalysis":
-        return cls(current_topic=None, topics=[], decisions=[], action_items=[], questions=[])
+        return cls(topics=[], decisions=[], action_items=[], questions=[])
+
+
+class FinalAnalysis(MeetingAnalysis):
+    """Used once, when the meeting ends: the analysis plus the summary, in one Gemini request."""
+    summary: str = Field(description="Short summary (3 to 5 sentences) for someone who missed the meeting.")
 
 
 # ---------- Request bodies ----------

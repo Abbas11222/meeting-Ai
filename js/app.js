@@ -50,7 +50,27 @@ const Router = {
   },
 };
 
+/** Lists script files that did not load (not copied into the folder, or wrong name). */
+function findMissingScripts() {
+  const loaded = {
+    'js/api.js':            typeof Api,
+    'js/microphone.js':     typeof Microphone,
+    'js/browser-speech.js': typeof BrowserSpeech,
+    'js/dashboard.js':      typeof Dashboard,
+    'js/meetings.js':       typeof Meetings,
+    'js/new-meeting.js':    typeof NewMeetingDialog,
+    'js/live.js':           typeof Live,
+  };
+  return Object.keys(loaded).filter((file) => loaded[file] === 'undefined');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  const missing = findMissingScripts();
+  if (missing.length > 0) {
+    showError(`These files did not load: ${missing.join(', ')}. Copy them into your project folder and press Ctrl+F5.`);
+    return;
+  }
+
   Router.bindLinks();
   NewMeetingDialog.init();
   Live.init();

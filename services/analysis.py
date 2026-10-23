@@ -1,8 +1,13 @@
-"""Meeting intelligence with Gemini: live analysis, final summary and Q&A."""
+"""Meeting intelligence with Gemini.
+
+Gemini is used in two places only:
+  1. analyze_final()    once, when the meeting ends: structured output + summary in ONE request
+  2. answer_question()  when someone asks a question about a finished meeting
+"""
 import logging
 
 import config
-from schemas import MeetingAnalysis
+from schemas import FinalAnalysis, MeetingAnalysis
 
 log = logging.getLogger("meeting-ai")
 
@@ -15,8 +20,8 @@ class GeminiNotConfigured(RuntimeError):
 
 # ---------- Instructions given to Gemini ----------
 
-ANALYSIS_INSTRUCTIONS = """
-You analyze a meeting while it is happening. You receive background context and the discussion so far.
+FINAL_INSTRUCTIONS = """
+You analyze a finished meeting. You receive background context and the full discussion.
 
 Rules:
 - The background context is NOT part of the discussion. Never report something as decided or discussed
@@ -26,15 +31,11 @@ Rules:
 - An action item is a task given to, or accepted by, someone. "owner" is the responsible person and
   "deadline" is what was said (for example "Friday"). Use null when it was not said.
 - A question is a real, important question raised in the meeting. Write it as a clear question.
-- "topics" are short phrases. "current_topic" is the subject discussed most recently.
+- "topics" are the main subjects, as short phrases.
+- "summary": 3 to 5 sentences for someone who missed the meeting. Mention the decisions and who is
+  responsible for what. Plain text only: no headings, no bullet points.
 - Answer in the language of the discussion. Keep every item short and self-contained.
-- Always return the complete, up-to-date lists for the whole discussion, not only the new items.
-""".strip()
-
-SUMMARY_INSTRUCTIONS = """
-Write a short summary (3 to 5 sentences) of this meeting for someone who missed it.
-Use only the discussion. Mention the decisions and who is responsible for what.
-Plain text only: no headings, no bullet points. Use the language of the discussion.
+- The speech-to-text may contain small mistakes. Use the context to understand the intended words.
 """.strip()
 
 QA_INSTRUCTIONS = """
@@ -67,7 +68,14 @@ def _format_transcript(transcript: list[dict]) -> str:
 def _generate(contents: str, instructions: str, schema=None) -> object:
     from google.genai import types
 
-    options = {"system_instruction": instructions}
+    http_options = {"timeout": config.GEMINI_TIMEOUT_SECONDS * 1000}          # milliseconds
+    if hasattr(types, "HttpRetryOptions"):
+        http_options["retry_options"] = types.HttpRetryOptions(attempts=2)   # one retry, not many
+
+    options = {
+        "system_instruction": instructions,
+        "http_options": types.HttpOptions(**http_options),
+    }
     if schema is not None:
         options["response_mime_type"] = "application/json"
         options["response_schema"] = schema
@@ -79,31 +87,34 @@ def _generate(contents: str, instructions: str, schema=None) -> object:
     )
 
 
+# ---------- Errors ----------
+
+def is_quota_error(error: Exception) -> bool:
+    return getattr(error, "code", None) == 429 or "RESOURCE_EXHAUSTED" in str(error)
+
+
+def describe_error(error: Exception) -> str:
+    """A short message that is safe to show to the user."""
+    if isinstance(error, GeminiNotConfigured):
+        return "The Gemini key is missing. Add GEMINI_API_KEY to the .env file."
+    if is_quota_error(error):
+        return "The Gemini free quota is used up. Try again later, or use another key or model."
+    return "Gemini could not process this request. See the server log for details."
+
+
 # ---------- Public functions ----------
 
-def analyze_meeting(context: str, transcript: list[dict]) -> MeetingAnalysis:
-    """Structured analysis of everything said so far."""
+def analyze_final(context: str, transcript: list[dict]) -> FinalAnalysis:
+    """Structured analysis and summary of the whole meeting, in ONE request."""
     if not transcript:
-        return MeetingAnalysis.empty()
+        return FinalAnalysis(**MeetingAnalysis.empty().model_dump(), summary="No discussion was captured.")
 
     prompt = (
         f"<background_context>\n{context or 'None'}\n</background_context>\n\n"
         f"<discussion>\n{_format_transcript(transcript)}\n</discussion>"
     )
-    response = _generate(prompt, ANALYSIS_INSTRUCTIONS, schema=MeetingAnalysis)
-    return response.parsed or MeetingAnalysis.model_validate_json(response.text)
-
-
-def summarize_meeting(context: str, transcript: list[dict], analysis: MeetingAnalysis) -> str:
-    if not transcript:
-        return "No discussion was captured."
-
-    prompt = (
-        f"<background_context>\n{context or 'None'}\n</background_context>\n\n"
-        f"<discussion>\n{_format_transcript(transcript)}\n</discussion>\n\n"
-        f"<extracted>\n{analysis.model_dump_json(indent=2)}\n</extracted>"
-    )
-    return _generate(prompt, SUMMARY_INSTRUCTIONS).text.strip()
+    response = _generate(prompt, FINAL_INSTRUCTIONS, schema=FinalAnalysis)
+    return response.parsed or FinalAnalysis.model_validate_json(response.text)
 
 
 def answer_question(transcript: list[dict], extracted: dict, question: str) -> str:

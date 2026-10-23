@@ -1,5 +1,7 @@
 /**
- * Live meeting page: timer, microphone, chat and the live analysis panel.
+ * Live meeting page: timer, microphone and chat.
+ * Nothing is analyzed during the meeting. Everything is saved, and the AI summary and
+ * structured output are created once, when the meeting ends.
  */
 const Live = {
   meeting: null,     // { id, title, context } returned by the backend
@@ -7,12 +9,17 @@ const Live = {
   startedAt: 0,
   timer: null,
   micOn: false,
+  engine: 'server',  // speech-to-text in use: 'server' (Groq) or 'browser' (Chrome fallback)
+  messageCount: 0,
+  speakers: new Set(),
 
   // ---------- Preparing the page ----------
 
   setup(meeting) {
     this.meeting = meeting;
     this.running = false;
+    this.messageCount = 0;
+    this.speakers = new Set();
 
     $('#live-title').textContent   = meeting.title;
     $('#live-context').textContent = meeting.context || 'No context provided.';
@@ -25,7 +32,7 @@ const Live = {
     $('#btn-end').hidden   = true;
     this.setInputsEnabled(false);
     this.showMic(false);
-    this.renderAnalysis({});
+    this.renderProgress();
 
     Router.show('live');
   },
@@ -68,21 +75,30 @@ const Live = {
   },
 
   async finish() {
-    this.stopMic();
-    clearInterval(this.timer);
     $('#btn-end').disabled = true;
     $('#live-status').textContent = 'Generating summary…';
+    showBusy('Ending the meeting', 'Creating the summary and structured output. This can take up to a minute.');
 
     try {
+      this.stopMic();
+      clearInterval(this.timer);
+
       const meeting = await Api.endMeeting(this.meeting.id);
       this.running = false;
-      showToast('Meeting saved');
+      hideBusy();
+
       Router.history = ['dashboard'];
-      Meetings.open(meeting.id);
+      await Meetings.open(meeting.id);
+      showToast(meeting.notice || 'Meeting saved', meeting.notice ? 9000 : 2600);
     } catch (error) {
-      showError('Could not end the meeting. Your discussion is safe on the server.', () => this.finish());
+      hideBusy();
+      window.scrollTo(0, 0);
+      console.error('Ending the meeting failed:', error);
+      const reason = error.message.replace(/\.$/, '');     // shows the real cause, for example "Failed to fetch"
+      showError(`Could not end the meeting: ${reason}. Your discussion is saved on the server.`, () => this.finish());
+    } finally {
+      $('#btn-end').disabled = false;
     }
-    $('#btn-end').disabled = false;
   },
 
   // ---------- Chat (POST .../messages) ----------
@@ -97,6 +113,10 @@ const Live = {
     message.innerHTML = `<small>${escapeHtml(speaker)}${fromVoice ? ' (voice)' : ''}</small>${escapeHtml(text)}`;
     chat.appendChild(message);
     chat.scrollTop = chat.scrollHeight;
+
+    this.messageCount += 1;
+    this.speakers.add(speaker);
+    this.renderProgress();
   },
 
   async sendTyped() {
@@ -113,43 +133,18 @@ const Live = {
     $('#message').value = '';
 
     try {
-      this.renderAnalysis(await Api.sendMessage(this.meeting.id, speaker, text));
+      await Api.sendMessage(this.meeting.id, speaker, text);
     } catch (error) {
-      showToast('Message not analyzed. Check the backend.');
+      showToast('Message not saved. Check the backend.');
     }
   },
 
-  // ---------- Live analysis panel ----------
-
-  /**
-   * @param {Object} analysis  { current_topic, decisions[], action_items[], questions[] }
-   */
-  renderAnalysis(analysis) {
-    $('#panel-topic').innerHTML = analysis.current_topic
-      ? `<span class="tag">${escapeHtml(analysis.current_topic)}</span>`
-      : '<div class="empty">Waiting for discussion</div>';
-
-    $('#panel-decisions').innerHTML = renderList(
-      analysis.decisions,
-      (text) => `<div class="item">✓ ${escapeHtml(text)}</div>`,
-      'No decisions yet'
-    );
-
-    $('#panel-actions').innerHTML = renderList(
-      analysis.action_items,
-      (action) => `
-        <div class="item">
-          <strong>${escapeHtml(action.task)}</strong>
-          <div class="muted small">${escapeHtml(action.owner || 'Unassigned')} · Deadline: ${escapeHtml(action.deadline || 'not set')}</div>
-        </div>`,
-      'No tasks assigned yet'
-    );
-
-    $('#panel-questions').innerHTML = renderList(
-      analysis.questions,
-      (text) => `<div class="item">${escapeHtml(text)}</div>`,
-      'No questions yet'
-    );
+  /** Small counters that replace the old live analysis panel. */
+  renderProgress() {
+    $('#stat-messages').textContent = this.messageCount;
+    $('#stat-speakers').innerHTML = this.speakers.size
+      ? [...this.speakers].map((name) => `<span class="tag">${escapeHtml(name)}</span>`).join(' ')
+      : '<span class="muted">Nobody yet</span>';
   },
 
   // ---------- Microphone (POST .../audio) ----------
@@ -163,24 +158,78 @@ const Live = {
   },
 
   async startMic() {
+    const serverReady = await this.isServerSpeechReady();
+
     try {
       await Microphone.start({
         onChunk:  (blob)   => this.sendAudio(blob),
         onLevels: (levels) => this.drawLevels(levels),
+        record:   serverReady,
       });
     } catch (error) {
       showToast('Microphone unavailable. Allow access in your browser, or type in the chat.');
       return;
     }
+
     this.micOn = true;
+    this.engine = 'server';
     this.showMic(true);
-    $('#mic-hint').textContent = 'Your speech is sent to the server in short parts.';
+
+    if (serverReady) {
+      $('#mic-hint').textContent = 'Your speech is sent to the server in short parts.';
+    } else {
+      this.useBrowserSpeech('Server speech-to-text is not set up.');
+    }
+  },
+
+  /** Asks the backend if Groq (or local Whisper) is ready. */
+  async isServerSpeechReady() {
+    try {
+      return (await Api.getSpeechStatus()).ready;
+    } catch (error) {
+      return true;     // backend unreachable: normal error messages will explain it
+    }
+  },
+
+  /** Fallback: Chrome's built-in speech recognition. */
+  useBrowserSpeech(reason) {
+    Microphone.stopRecording();
+
+    if (!BrowserSpeech.isSupported()) {
+      showToast(`${reason} Chrome speech recognition is not available in this browser. Type in the chat instead.`, 8000);
+      this.stopMic();
+      return;
+    }
+
+    this.engine = 'browser';
+    BrowserSpeech.start({
+      onText:  (text)    => this.handleBrowserText(text),
+      onError: (message) => { showToast(message, 6000); this.stopMic(); },
+    });
+    $('#mic-hint').textContent = 'Using Chrome speech recognition (fallback).';
+    showToast(`${reason} Switched to Chrome speech recognition.`, 6000);
+  },
+
+  async handleBrowserText(text) {
+    const speaker = $('#speaker').value.trim() || 'Speaker';
+    this.addMessage(speaker, text, { fromVoice: true });
+    try {
+      await Api.sendMessage(this.meeting.id, speaker, text, 'voice');
+    } catch (error) {
+      showToast('Speech not saved. Check the backend.');
+    }
   },
 
   stopMic() {
     if (!this.micOn) return;
-    Microphone.stop();
     this.micOn = false;
+    this.engine = 'server';
+
+    // Each step is protected, so a problem in one of them never blocks the others
+    // (or ending the meeting).
+    try { BrowserSpeech.stop(); } catch (error) { console.error('Chrome speech did not stop:', error); }
+    try { Microphone.stop(); }    catch (error) { console.error('Microphone did not stop:', error); }
+
     this.showMic(false);
     $('#mic-hint').textContent = 'Press the microphone to start speaking.';
   },
@@ -192,9 +241,11 @@ const Live = {
       if (result.text && result.text.trim()) {
         this.addMessage(result.speaker || speaker || 'Speaker', result.text.trim(), { fromVoice: true });
       }
-      if (result.analysis) this.renderAnalysis(result.analysis);
     } catch (error) {
-      showToast('Speech not processed. Check the backend.');
+      // Groq failed (for example a wrong key or no internet): continue with Chrome instead.
+      if (this.micOn && this.engine === 'server') {
+        this.useBrowserSpeech('Server speech-to-text failed.');
+      }
     }
   },
 

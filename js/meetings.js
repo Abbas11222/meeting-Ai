@@ -11,36 +11,65 @@ const Meetings = {
     try {
       const meetings = await Api.getMeetings($('#search').value.trim());
       const container = $('#meeting-list');
-      container.innerHTML = renderList(meetings, this.rowHtml, 'No meetings found.');
+      container.innerHTML = renderList(meetings, (meeting) => this.rowHtml(meeting, true), 'No meetings found.');
       this.bindRows(container);
     } catch (error) {
       showBackendError('load the meetings', () => this.loadList());
     }
   },
 
-  /** One clickable row. Used by the dashboard and by the list. */
-  rowHtml(meeting) {
+  /** One row. `withActions` adds the PDF and Delete buttons (used on the Meetings page). */
+  rowHtml(meeting, withActions = false) {
     const topics = meeting.topics && meeting.topics.length
       ? ' · ' + meeting.topics.map(escapeHtml).join(', ')
       : '';
 
+    const actions = withActions ? `
+      <div class="row-actions">
+        <a class="btn btn-small" href="${Api.pdfUrl(meeting.id)}" target="_blank" rel="noopener">View PDF</a>
+        <a class="btn btn-small" href="${Api.pdfUrl(meeting.id, true)}">Download PDF</a>
+        <button class="btn btn-small btn-delete" data-delete-id="${escapeHtml(meeting.id)}"
+                data-delete-title="${escapeHtml(meeting.title)}">Delete</button>
+      </div>` : '';
+
     return `
-      <button class="meeting-row" data-meeting-id="${escapeHtml(meeting.id)}">
-        <div>
-          <h3>${escapeHtml(meeting.title)}</h3>
-          <div class="muted small">${formatDate(meeting.date)} · ${escapeHtml(meeting.duration_min)} min${topics}</div>
-        </div>
-        <div class="row">
-          <span class="tag">${escapeHtml(meeting.decision_count)} decisions</span>
-          <span class="tag tag-amber">${escapeHtml(meeting.action_count)} tasks</span>
-        </div>
-      </button>`;
+      <div class="meeting-row">
+        <button class="meeting-main" data-meeting-id="${escapeHtml(meeting.id)}">
+          <div>
+            <h3>${escapeHtml(meeting.title)}</h3>
+            <div class="muted small">${formatDate(meeting.date)} · ${escapeHtml(meeting.duration_min)} min${topics}</div>
+          </div>
+          <div class="row">
+            <span class="tag">${escapeHtml(meeting.decision_count)} decisions</span>
+            <span class="tag tag-amber">${escapeHtml(meeting.action_count)} tasks</span>
+          </div>
+        </button>
+        ${actions}
+      </div>`;
   },
 
   bindRows(container) {
-    $$('[data-meeting-id]', container).forEach((row) => {
-      row.onclick = () => this.open(row.dataset.meetingId);
+    $$('[data-meeting-id]', container).forEach((button) => {
+      button.onclick = () => this.open(button.dataset.meetingId);
     });
+    $$('[data-delete-id]', container).forEach((button) => {
+      button.onclick = () => this.remove(button.dataset.deleteId, button.dataset.deleteTitle);
+    });
+  },
+
+  // ---------- Delete (DELETE /api/meetings/{id}) ----------
+
+  async remove(id, title) {
+    const question = `Delete "${title}"?\nThe transcript, summary and tasks will be removed. This cannot be undone.`;
+    if (!confirm(question)) return;
+
+    try {
+      await Api.deleteMeeting(id);
+      showToast('Meeting deleted');
+      await this.loadList();
+    } catch (error) {
+      showToast(error.fromServer ? error.message : 'Could not delete the meeting. Check the backend.', 5000);
+    }
   },
 
   // ---------- Detail (GET /api/meetings/{id}) ----------
@@ -57,6 +86,11 @@ const Meetings = {
   },
 
   detailHtml(meeting) {
+    const summary = meeting.summary
+      ? `<p>${escapeHtml(meeting.summary)}</p>`
+      : `<p class="muted">No summary yet.</p>
+         <button class="btn btn-primary btn-small" id="regen-button">Generate summary</button>`;
+
     const topics = (meeting.topics || [])
       .map((topic) => `<span class="tag">${escapeHtml(topic)}</span>`)
       .join('');
@@ -88,13 +122,17 @@ const Meetings = {
             <p class="muted">${formatDate(meeting.date)} · ${escapeHtml(meeting.duration_min)} min</p>
           </div>
         </div>
+        <div class="row">
+          <a class="btn" href="${Api.pdfUrl(meeting.id)}" target="_blank" rel="noopener">View PDF</a>
+          <a class="btn btn-primary" href="${Api.pdfUrl(meeting.id, true)}">Download PDF</a>
+        </div>
       </header>
 
       <div class="grid-live">
         <div class="stack">
           <div class="card">
             <h2>Summary</h2>
-            <p>${escapeHtml(meeting.summary) || 'No summary available.'}</p>
+            ${summary}
             <div class="row">${topics}</div>
           </div>
 
@@ -135,9 +173,26 @@ const Meetings = {
         const result = await Api.askQuestion(meeting.id, question);
         answer.textContent = result.answer;
       } catch (error) {
-        answer.textContent = 'Could not get an answer. Try again.';
+        answer.textContent = error.fromServer ? error.message : 'Could not get an answer. Try again.';
       }
     };
+
+    const regenerate = $('#regen-button');
+    if (regenerate) {
+      regenerate.onclick = async () => {
+        regenerate.disabled = true;
+        regenerate.textContent = 'Generating…';
+        try {
+          await Api.regenerateSummary(meeting.id);
+          await this.open(meeting.id);
+          showToast('Summary generated');
+        } catch (error) {
+          regenerate.disabled = false;
+          regenerate.textContent = 'Generate summary';
+          showToast(error.fromServer ? error.message : 'Could not reach the server.', 7000);
+        }
+      };
+    }
 
     $('#ask-button').onclick = ask;
     input.onkeydown = (event) => { if (event.key === 'Enter') ask(); };

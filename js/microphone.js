@@ -13,8 +13,10 @@ const Microphone = {
   /**
    * @param {Function} onChunk   called with an audio Blob every few seconds
    * @param {Function} onLevels  called many times per second with sound levels (0-255)
+   * @param {boolean}  record    false = only show the sound level, do not record audio parts
    */
-  async start({ onChunk, onLevels }) {
+  async start({ onChunk, onLevels, record = true }) {
+    this.recording = record;
     if (!window.MediaRecorder) {
       throw new Error('This browser cannot record audio.');
     }
@@ -24,7 +26,17 @@ const Microphone = {
     this.onChunk = onChunk;
 
     this.watchLevels(onLevels);
-    this.recordNextChunk();
+    if (record) this.recordNextChunk();
+  },
+
+  /** Stops recording audio parts (the sound level keeps moving). Pending audio is dropped. */
+  stopRecording() {
+    this.recording = false;
+    this.onChunk = () => {};
+    clearTimeout(this.cutTimer);
+    if (this.recorder && this.recorder.state !== 'inactive') {
+      this.recorder.stop();
+    }
   },
 
   stop() {
@@ -46,7 +58,7 @@ const Microphone = {
 
   /** Records one part, then starts the next one. Each part is a complete audio file. */
   recordNextChunk() {
-    if (!this.active) return;
+    if (!this.active || !this.recording) return;
 
     const recorder = new MediaRecorder(this.stream);
     const pieces = [];

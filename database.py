@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS meetings (
     title         TEXT NOT NULL,
     context       TEXT NOT NULL DEFAULT '',
     status        TEXT NOT NULL DEFAULT 'created',   -- created | live | ended
-    current_topic TEXT,
     summary       TEXT NOT NULL DEFAULT '',
     duration_min  INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL,

@@ -37,12 +37,12 @@ function renderList(items, renderItem, emptyText = 'None recorded.') {
 
 /** Short message at the bottom of the screen. */
 let toastTimer;
-function showToast(message) {
+function showToast(message, duration = 2600) {
   const toast = $('#toast');
   toast.textContent = message;
   toast.style.display = 'block';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2600);
+  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
 /** Red banner at the top of the page, with an optional "Try again" button. */
@@ -72,3 +72,14 @@ function showBackendError(action, onRetry) {
 
 /** Back arrow icon (used on pages created by JavaScript). */
 const BACK_ARROW_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>';
+
+/** Full-screen "please wait" message for slow actions (ending a meeting). */
+function showBusy(title, text = '') {
+  $('#busy-title').textContent = title;
+  $('#busy-text').textContent = text;
+  $('#busy').hidden = false;
+}
+
+function hideBusy() {
+  $('#busy').hidden = true;
+}

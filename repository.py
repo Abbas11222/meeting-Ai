@@ -43,6 +43,17 @@ def finish_meeting(conn: sqlite3.Connection, meeting, summary: str) -> None:
         )
 
 
+def set_summary(conn: sqlite3.Connection, meeting_id: int, summary: str) -> None:
+    with conn:
+        conn.execute("UPDATE meetings SET summary = ? WHERE id = ?", (summary, meeting_id))
+
+
+def delete_meeting(conn: sqlite3.Connection, meeting_id: int) -> None:
+    """Deletes the meeting and, through the foreign keys, everything stored for it."""
+    with conn:
+        conn.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
+
+
 # ---------- Messages ----------
 
 def add_message(conn: sqlite3.Connection, meeting_id: int, speaker: str, text: str, source: str) -> None:
@@ -65,8 +76,6 @@ def get_transcript(conn: sqlite3.Connection, meeting_id: int) -> list[dict]:
 def save_analysis(conn: sqlite3.Connection, meeting_id: int, analysis: MeetingAnalysis) -> None:
     """Replaces what was stored before with the newest full analysis."""
     with conn:
-        conn.execute("UPDATE meetings SET current_topic = ? WHERE id = ?", (analysis.current_topic, meeting_id))
-
         for table in ("topics", "decisions", "questions", "action_items"):
             conn.execute(f"DELETE FROM {table} WHERE meeting_id = ?", (meeting_id,))
 
@@ -93,14 +102,12 @@ def load_analysis(conn: sqlite3.Connection, meeting_id: int) -> dict:
     def column(sql: str) -> list:
         return [row[0] for row in conn.execute(sql, (meeting_id,)).fetchall()]
 
-    meeting = get_meeting(conn, meeting_id)
     actions = conn.execute(
         "SELECT task, owner, deadline, done FROM action_items WHERE meeting_id = ? ORDER BY id",
         (meeting_id,),
     ).fetchall()
 
     return {
-        "current_topic": meeting["current_topic"],
         "topics": column("SELECT name FROM topics WHERE meeting_id = ? ORDER BY id"),
         "decisions": column("SELECT text FROM decisions WHERE meeting_id = ? ORDER BY id"),
         "action_items": [
@@ -123,7 +130,7 @@ def full_meeting(conn: sqlite3.Connection, meeting_id: int) -> dict:
         "context": meeting["context"],
         "summary": meeting["summary"],
         "transcript": get_transcript(conn, meeting_id),
-        **{k: v for k, v in load_analysis(conn, meeting_id).items() if k != "current_topic"},
+        **load_analysis(conn, meeting_id),
     }
 
 
